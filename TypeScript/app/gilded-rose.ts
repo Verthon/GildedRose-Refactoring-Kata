@@ -44,19 +44,15 @@ class Quality {
   }
 
   incrementBy(incrementBy: number) {
-    if (this.quality + incrementBy >= this.maxQuality) {
-      return this.maxQuality;
-    }
+    const incrementedValue = this.quality + incrementBy;
 
-    this.quality += incrementBy;
+    this.quality = Math.min(incrementedValue, this.maxQuality);
   }
 
   decrementBy(decrementBy: number) {
-    if (this.quality - decrementBy < this.minQuality) {
-      return this.minQuality;
-    }
+    const decrementedValue = this.quality - decrementBy;
 
-    this.quality -= decrementBy;
+    this.quality = Math.max(decrementedValue, this.minQuality);
   }
 }
 
