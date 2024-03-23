@@ -23,9 +23,9 @@ class SellIn {
     return this.sellIn;
   }
 
-  decrementBy(decrementBy: number) {
+  decrementBy = (decrementBy: number) => {
     this.sellIn -= decrementBy;
-  }
+  };
 }
 
 class Quality {
@@ -43,17 +43,21 @@ class Quality {
     return this.quality;
   }
 
-  incrementBy(incrementBy: number) {
+  incrementBy = (incrementBy: number) => {
     const incrementedValue = this.quality + incrementBy;
 
     this.quality = Math.min(incrementedValue, this.maxQuality);
-  }
+  };
 
-  decrementBy(decrementBy: number) {
+  decrementBy = (decrementBy: number) => {
     const decrementedValue = this.quality - decrementBy;
 
     this.quality = Math.max(decrementedValue, this.minQuality);
-  }
+  };
+
+  setToZero = () => {
+    this.quality = 0;
+  };
 }
 
 class Sulfuras {
@@ -91,23 +95,54 @@ class AgedBrie {
     return this.item;
   }
 
-  updateQuality() {
+  updateQualityForPositiveSellIn = () => {
     const quality = new Quality(this.item.quality);
-    const sellIn = new SellIn(this.item.sellIn);
 
-    if (sellIn.currentSellIn >= 0) {
-      quality.incrementBy(1);
+    quality.incrementBy(1);
 
-      this.item.quality = quality.currentQuality;
+    this.item.quality = quality.currentQuality;
 
-      return this.item.quality;
-    }
+    return this.item.quality;
+  };
+
+  updateQualityForNegativeSellIn = () => {
+    const quality = new Quality(this.item.quality);
 
     quality.incrementBy(2);
 
     this.item.quality = quality.currentQuality;
 
     return this.item.quality;
+  };
+
+  getCurrentStrategy = (currentSellIn: SellIn["currentSellIn"]) => {
+    const signMap = {
+      negative: -1,
+      zero: 0,
+      positive: 1,
+    } as const;
+
+    const qualityUpdateStrategy = {
+      negative: this.updateQualityForNegativeSellIn,
+      positive: this.updateQualityForPositiveSellIn,
+      zero: this.updateQualityForPositiveSellIn,
+    } as const;
+
+    const sign = Math.sign(currentSellIn);
+
+    const currentSign = Object.keys(signMap).find(
+      (key) => signMap[key] === sign
+    ) as keyof typeof signMap;
+
+    return qualityUpdateStrategy[currentSign];
+  };
+
+  updateQuality() {
+    const sellIn = new SellIn(this.item.sellIn);
+
+    const updateQualityStrategy = this.getCurrentStrategy(sellIn.currentSellIn);
+
+    return updateQualityStrategy();
   }
 
   updateSellIn() {
@@ -121,6 +156,17 @@ class AgedBrie {
   }
 }
 
+type BackStagePassesStrategy =
+  | "afterConcert"
+  | "fiveDaysOrLessLeft"
+  | "tenDaysOrLessLeft"
+  | "regular";
+
+type UniqueBackStagePassesStrategy = Exclude<
+  BackStagePassesStrategy,
+  "regular"
+>;
+
 class BackstagePasses {
   private item: Item;
 
@@ -132,52 +178,69 @@ class BackstagePasses {
     return this.item;
   }
 
-  private isAfterConcert(sellIn: number) {
-    return sellIn <= 0;
-  }
+  private getQualityUpdateStrategyName = (
+    currentSellIn: SellIn["currentSellIn"]
+  ) => {
+    const strategyName: Record<
+      UniqueBackStagePassesStrategy,
+      (currentSellIn: SellIn["currentSellIn"]) => boolean
+    > = {
+      afterConcert: (currentSellIn) => currentSellIn <= 0,
+      fiveDaysOrLessLeft: (currentSellIn) => currentSellIn <= 5,
+      tenDaysOrLessLeft: (currentSellIn) => currentSellIn <= 10,
+    };
 
-  private are5DaysOrLessLeft(sellIn: number) {
-    return sellIn <= 5;
-  }
+    const currentStrategyName = Object.keys(strategyName).find((key) =>
+      strategyName[key](currentSellIn)
+    ) as UniqueBackStagePassesStrategy | undefined;
 
-  private are10DaysOrLessLeft(sellIn: number) {
-    return sellIn <= 10;
-  }
+    return currentStrategyName || "regular";
+  };
 
-  updateQuality() {
+  private getQualityUpdateStrategy = (
+    strategyName: BackStagePassesStrategy,
+    incrementBy: Quality["incrementBy"],
+    setQualityToZero: Quality['setToZero']
+  ) => {
+    const qualityUpdateStrategy: Record<BackStagePassesStrategy, () => void> = {
+      afterConcert: () => {
+        return setQualityToZero();
+      },
+      fiveDaysOrLessLeft: () => {
+        return incrementBy(3);
+      },
+      tenDaysOrLessLeft: () => {
+        return incrementBy(2);
+      },
+      regular: () => {
+        return incrementBy(1);
+      },
+    };
+
+    return qualityUpdateStrategy[strategyName];
+  };
+
+  updateQuality = () => {
     const quality = new Quality(this.item.quality);
     const sellIn = new SellIn(this.item.sellIn);
 
-    if (this.isAfterConcert(sellIn.currentSellIn)) {
-      this.item.quality = 0;
+    const strategyName = this.getQualityUpdateStrategyName(
+      sellIn.currentSellIn
+    );
+    const qualityUpdateStrategy = this.getQualityUpdateStrategy(
+      strategyName,
+      quality.incrementBy,
+      quality.setToZero
+    );
 
-      return this.item.quality;
-    }
-
-    if (this.are5DaysOrLessLeft(sellIn.currentSellIn)) {
-      quality.incrementBy(3);
-
-      this.item.quality = quality.currentQuality;
-
-      return this.item.quality;
-    }
-
-    if (this.are10DaysOrLessLeft(sellIn.currentSellIn)) {
-      quality.incrementBy(2);
-
-      this.item.quality = quality.currentQuality;
-
-      return this.item.quality;
-    }
-
-    quality.incrementBy(1);
+    qualityUpdateStrategy();
 
     this.item.quality = quality.currentQuality;
 
     return this.item.quality;
-  }
+  };
 
-  updateSellIn() {
+  updateSellIn = () => {
     const sellIn = new SellIn(this.item.sellIn);
 
     sellIn.decrementBy(1);
@@ -185,7 +248,7 @@ class BackstagePasses {
     this.item.sellIn = sellIn.currentSellIn;
 
     return this.item.sellIn;
-  }
+  };
 }
 
 class Conjured {
@@ -203,7 +266,7 @@ class Conjured {
     const quality = new Quality(this.item.quality);
     const sellIn = new SellIn(this.item.sellIn);
 
-    if (sellIn.currentSellIn > 0) {
+    if (sellIn.currentSellIn >= 0) {
       quality.decrementBy(2);
 
       this.item.quality = quality.currentQuality;
@@ -311,11 +374,11 @@ class BackstagePassesStrategy implements UpdateQualityStrategy {
 
 class ConjuredStrategy implements UpdateQualityStrategy {
   public update(item: Item, items: Item[]) {
-    const regular = new Conjured(item);
+    const conjured = new Conjured(item);
 
-    regular.updateSellIn();
-    regular.updateQuality();
-    item = regular.currentItem;
+    conjured.updateSellIn();
+    conjured.updateQuality();
+    item = conjured.currentItem;
 
     return items;
   }
