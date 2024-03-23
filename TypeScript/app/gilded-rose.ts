@@ -1,6 +1,4 @@
-type ValueOf<T> = T[keyof T];
-
-export class Item {
+class Item {
   name: string;
   sellIn: number;
   quality: number;
@@ -481,11 +479,7 @@ export class GildedRose {
       Conjured: "conjured",
     } as const;
 
-    if (Object.keys(map).includes(itemName)) {
-      return map[itemName] as ValueOf<typeof map>;
-    }
-
-    return "regular";
+    return map[itemName] || "regular";
   }
 
   private getCurrentStrategy(strategyName: StrategyName) {
