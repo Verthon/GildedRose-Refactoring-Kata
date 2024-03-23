@@ -23,7 +23,7 @@ class SellIn {
     return this.sellIn;
   }
 
-  decrementBy = (decrementBy: number) => {
+  public decrementBy = (decrementBy: number) => {
     this.sellIn -= decrementBy;
   };
 }
@@ -43,19 +43,19 @@ class Quality {
     return this.quality;
   }
 
-  incrementBy = (incrementBy: number) => {
+  public incrementBy = (incrementBy: number) => {
     const incrementedValue = this.quality + incrementBy;
 
     this.quality = Math.min(incrementedValue, this.maxQuality);
   };
 
-  decrementBy = (decrementBy: number) => {
+  public decrementBy = (decrementBy: number) => {
     const decrementedValue = this.quality - decrementBy;
 
     this.quality = Math.max(decrementedValue, this.minQuality);
   };
 
-  setToZero = () => {
+  public setToZero = () => {
     this.quality = 0;
   };
 }
@@ -71,13 +71,13 @@ class Sulfuras {
     return this.item;
   }
 
-  updateQuality() {
+  public updateQuality() {
     const quality = new Quality(this.item.quality);
 
     return quality.currentQuality;
   }
 
-  updateSellIn() {
+  public updateSellIn() {
     const sellIn = new SellIn(this.item.sellIn);
 
     return sellIn.currentSellIn;
@@ -95,7 +95,7 @@ class AgedBrie {
     return this.item;
   }
 
-  updateQualityForPositiveSellIn = () => {
+  public updateQualityForPositiveSellIn = () => {
     const quality = new Quality(this.item.quality);
 
     quality.incrementBy(1);
@@ -105,7 +105,7 @@ class AgedBrie {
     return this.item.quality;
   };
 
-  updateQualityForNegativeSellIn = () => {
+  public updateQualityForNegativeSellIn = () => {
     const quality = new Quality(this.item.quality);
 
     quality.incrementBy(2);
@@ -115,7 +115,7 @@ class AgedBrie {
     return this.item.quality;
   };
 
-  getCurrentStrategy = (currentSellIn: SellIn["currentSellIn"]) => {
+  private getCurrentStrategy = (currentSellIn: SellIn["currentSellIn"]) => {
     const signMap = {
       negative: -1,
       zero: 0,
@@ -137,7 +137,7 @@ class AgedBrie {
     return qualityUpdateStrategy[currentSign];
   };
 
-  updateQuality() {
+  public updateQuality() {
     const sellIn = new SellIn(this.item.sellIn);
 
     const updateQualityStrategy = this.getCurrentStrategy(sellIn.currentSellIn);
@@ -145,7 +145,7 @@ class AgedBrie {
     return updateQualityStrategy();
   }
 
-  updateSellIn() {
+  public updateSellIn() {
     const sellIn = new SellIn(this.item.sellIn);
 
     sellIn.decrementBy(1);
@@ -200,7 +200,7 @@ class BackstagePasses {
   private getQualityUpdateStrategy = (
     strategyName: BackStagePassesStrategy,
     incrementBy: Quality["incrementBy"],
-    setQualityToZero: Quality['setToZero']
+    setQualityToZero: Quality["setToZero"]
   ) => {
     const qualityUpdateStrategy: Record<BackStagePassesStrategy, () => void> = {
       afterConcert: () => {
@@ -220,7 +220,7 @@ class BackstagePasses {
     return qualityUpdateStrategy[strategyName];
   };
 
-  updateQuality = () => {
+  public updateQuality = () => {
     const quality = new Quality(this.item.quality);
     const sellIn = new SellIn(this.item.sellIn);
 
@@ -240,7 +240,7 @@ class BackstagePasses {
     return this.item.quality;
   };
 
-  updateSellIn = () => {
+  public updateSellIn = () => {
     const sellIn = new SellIn(this.item.sellIn);
 
     sellIn.decrementBy(1);
@@ -250,6 +250,10 @@ class BackstagePasses {
     return this.item.sellIn;
   };
 }
+
+type ConjuredItemStrategyName =
+  | "beforeExpirySellInDate"
+  | "afterExpirySellInDate";
 
 class Conjured {
   private item: Item;
@@ -262,26 +266,56 @@ class Conjured {
     return this.item;
   }
 
-  updateQuality() {
+  private getUpdateQualityStrategyName = (
+    currentSellIn: SellIn["currentSellIn"]
+  ) => {
+    const strategyName: Record<
+      ConjuredItemStrategyName,
+      (sellIn: SellIn["currentSellIn"]) => boolean
+    > = {
+      afterExpirySellInDate: (sellIn) => sellIn < 0,
+      beforeExpirySellInDate: (sellIn) => sellIn >= 0,
+    };
+
+    const currentStrategyName = Object.keys(strategyName).find((key) =>
+      strategyName[key](currentSellIn)
+    ) as ConjuredItemStrategyName;
+
+    return currentStrategyName;
+  };
+
+  private getUpdateQualityStrategy = (decrementBy: Quality["decrementBy"]) => {
+    const strategy: Record<ConjuredItemStrategyName, () => void> = {
+      afterExpirySellInDate: () => {
+        decrementBy(4);
+        return;
+      },
+      beforeExpirySellInDate: () => {
+        decrementBy(2);
+        return;
+      },
+    };
+
+    return strategy;
+  };
+
+  public updateQuality() {
     const quality = new Quality(this.item.quality);
     const sellIn = new SellIn(this.item.sellIn);
+    const updateQualityStrategyName = this.getUpdateQualityStrategyName(
+      sellIn.currentSellIn
+    );
+    const updateQualityStrategy = this.getUpdateQualityStrategy(
+      quality.decrementBy
+    );
 
-    if (sellIn.currentSellIn >= 0) {
-      quality.decrementBy(2);
-
-      this.item.quality = quality.currentQuality;
-
-      return this.item.quality;
-    }
-
-    quality.decrementBy(4);
-
+    updateQualityStrategy[updateQualityStrategyName]();
     this.item.quality = quality.currentQuality;
 
     return this.item.quality;
   }
 
-  updateSellIn() {
+  public updateSellIn() {
     const sellIn = new SellIn(this.item.sellIn);
 
     sellIn.decrementBy(1);
@@ -291,6 +325,10 @@ class Conjured {
     return this.item.sellIn;
   }
 }
+
+type RegularItemStrategyName =
+  | "beforeExpirySellInDate"
+  | "afterExpirySellInDate";
 
 class RegularItem {
   private item: Item;
@@ -303,26 +341,51 @@ class RegularItem {
     return this.item;
   }
 
-  updateQuality() {
+  private getUpdateQualityStrategyName = (
+    currentSellIn: SellIn["currentSellIn"]
+  ) => {
+    const strategyName: Record<
+      RegularItemStrategyName,
+      (sellIn: SellIn["currentSellIn"]) => boolean
+    > = {
+      afterExpirySellInDate: (sellIn) => sellIn < 0,
+      beforeExpirySellInDate: (sellIn) => sellIn >= 0,
+    };
+
+    const currentStrategyName = Object.keys(strategyName).find((key) =>
+      strategyName[key](currentSellIn)
+    ) as RegularItemStrategyName;
+
+    return currentStrategyName;
+  };
+
+  private getUpdateQualityStrategy = (decrementBy: Quality["decrementBy"]) => {
+    const strategy: Record<RegularItemStrategyName, () => void> = {
+      afterExpirySellInDate: () => decrementBy(2),
+      beforeExpirySellInDate: () => decrementBy(1),
+    };
+
+    return strategy;
+  };
+
+  public updateQuality() {
     const quality = new Quality(this.item.quality);
     const sellIn = new SellIn(this.item.sellIn);
+    const qualityUpdateStrategyName = this.getUpdateQualityStrategyName(
+      sellIn.currentSellIn
+    );
+    const qualityUpdateStrategy = this.getUpdateQualityStrategy(
+      quality.decrementBy
+    );
 
-    if (sellIn.currentSellIn >= 0) {
-      quality.decrementBy(1);
-
-      this.item.quality = quality.currentQuality;
-
-      return this.item.quality;
-    }
-
-    quality.decrementBy(2);
+    qualityUpdateStrategy[qualityUpdateStrategyName]();
 
     this.item.quality = quality.currentQuality;
 
     return this.item.quality;
   }
 
-  updateSellIn() {
+  public updateSellIn() {
     const sellIn = new SellIn(this.item.sellIn);
 
     sellIn.decrementBy(1);
@@ -406,7 +469,7 @@ type StrategyName =
 export class GildedRose {
   items: Array<Item>;
 
-  constructor(items: Array<Item> = []) {
+  constructor(items: Array<Item>) {
     this.items = items;
   }
 
@@ -437,7 +500,7 @@ export class GildedRose {
     return strategy[strategyName];
   }
 
-  updateQuality() {
+  public updateQuality() {
     for (let i = 0; i < this.items.length; i++) {
       const strategyName = this.getCurrentStrategyName(this.items[i].name);
       const strategy = this.getCurrentStrategy(strategyName);
